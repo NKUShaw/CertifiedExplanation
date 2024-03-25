@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 from pathlib import Path
 
 # wandb.init(mode='offline')
-
+#python train.py --epochs 60 --batch_size 256
 
 def test(model, device, test_loader, criterion):
     model.eval()  # Set the model to evaluation mode
@@ -37,26 +37,6 @@ def test(model, device, test_loader, criterion):
     accuracy = 100 * correct / total
 
     return avg_loss, accuracy
-
-# def add_gaussian_noise(args, input):
-#     noise = torch.randn_like(input) * args.noise_scale
-#     return input + noise
-#
-#
-# def predict_with_randomized_smoothing(args, model, image, num_samples):
-#     # Expand the single image to a batch
-#     image_batch = image.unsqueeze(0).repeat(num_samples, 1, 1, 1)
-#     # Add Gaussian noise
-#     noisy_images = add_gaussian_noise(args, image_batch)
-#
-#     # Predict using the model
-#     predictions = model(noisy_images)
-#
-#     # Get the predicted classes for each noisy image
-#     _, predicted_classes = predictions.max(1)
-#
-#     # Return the most frequently predicted class
-#     return torch.bincount(predicted_classes).argmax().item()
 
 if __name__ == '__main__':
     args = get_arg()
@@ -194,7 +174,6 @@ if __name__ == '__main__':
         Path(dir_checkpoint).mkdir(parents=True, exist_ok=True)
         state_dict = model.state_dict()
         torch.save(state_dict,
-                   str(dir_checkpoint / '{}'.format(args.dataset) / '{}'.format(args.sigma) / 'checkpoint_{}_epoch{}.pth'.format(args.dataset,
-                                                                                                       epoch)))
+                   str(dir_checkpoint / '{}'.format(args.dataset) / '{}'.format(args.sigma) / 'checkpoint_{}_epoch{}.pth'.format(args.dataset, epoch)))
         logging.info(f'Checkpoint {epoch} saved!')
         print('Best Accuracy = {}'.format(best_accuracy))
