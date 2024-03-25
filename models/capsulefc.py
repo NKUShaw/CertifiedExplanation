@@ -9,18 +9,35 @@ def squash(x, dim=-1):
     return scale * (x / suqared_norm.sqrt() + 1e-8)
 
 
+# class PrimaryCaps(nn.Module):
+#     def __init__(self, num_conv_units, in_channels, out_channels, kernel_size, stride):  
+#         super(PrimaryCaps, self).__init__()
+#         self.conv = nn.Conv2d(in_channels=in_channels, out_channels=out_channels * num_conv_units,
+#                               kernel_size=kernel_size, stride=stride)
+        
+#         self.out_channels = out_channels
+
+#     def forward(self, x):
+#         out = self.conv(x) 
+#         batch_size = out.shape[0] 
+#         return squash(out.contiguous().view(batch_size, -1, self.out_channels), dim=-1) 
+# Input: [Batch_Size, 256, 20, 20] Output: [Batch_Size, 1152, 8]
 class PrimaryCaps(nn.Module):
     def __init__(self, num_conv_units, in_channels, out_channels, kernel_size, stride):
         super(PrimaryCaps, self).__init__()
-        self.conv = nn.Conv2d(in_channels=in_channels, out_channels=out_channels * num_conv_units,
-                              kernel_size=kernel_size, stride=stride)
-        
+        self.num_conv_units = num_conv_units
+        input_features = 20 * 20 * in_channels 
+        output_features = 6 * 6 * out_channels * num_conv_units  
+        self.fc = nn.Linear(input_features, output_features)
         self.out_channels = out_channels
 
     def forward(self, x):
-        out = self.conv(x)
-        batch_size = out.shape[0]
-        return squash(out.contiguous().view(batch_size, -1, self.out_channels), dim=-1)
+        batch_size = x.shape[0]
+        x = x.view(batch_size, -1) 
+        out = self.fc(x)
+        out = out.view(batch_size, 6 * 6 * self.num_conv_units, -1)
+        return squash(out, dim=-1)
+
 
 
 class DigitCaps(nn.Module):
@@ -54,21 +71,20 @@ class DigitCaps(nn.Module):
         v = squash(s)
 
         return v, c, b
-    
 
 class CapsNet(nn.Module):
     def __init__(self, device):
         super(CapsNet, self).__init__()
         self.device = device
-        self.conv = nn.Conv2d(1, 256, 9) # 32 * 32 → 24 * 24
+        self.conv = nn.Conv2d(1, 256, 9) # 28 * 28 → 20 * 20
         self.relu = nn.ReLU(inplace=True)
         self.primary_caps = PrimaryCaps(num_conv_units=32,       
                                         in_channels=256,
                                         out_channels=8,
                                         kernel_size=9,
-                                        stride=2)              
+                                        stride=2)            
         self.digit_caps = DigitCaps(in_dim=8,
-                                    in_caps=32 * 6 * 6,  # cifar in_caps=32 * 8 * 8 mnist in_caps=32 * 6 * 6
+                                    in_caps=32 * 6 * 6,
                                     num_caps=10,
                                     dim_caps=16,
                                     num_routing=3,

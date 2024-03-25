@@ -52,9 +52,26 @@ class DigitCaps(nn.Module):
         c = b.softmax(dim=1)
         s = (c * u_hat).sum(dim=2)
         v = squash(s)
+        return v, c, b
+        
+    def newargmax(self, x):
+        batch_size = x.size(0)
+        x = x.unsqueeze(1).unsqueeze(4)
+        u_hat = torch.matmul(self.W, x)
+        u_hat = u_hat.squeeze(-1)
+        temp_u_hat = u_hat.detach()
+        b = torch.zeros(batch_size, self.num_caps, self.in_caps, 1).to(self.device)
+        for route_iter in range(self.num_routing - 1):
+            c = b.softmax(dim=1)
+            s = (c * temp_u_hat).sum(dim=2)
+            v = squash(s)
+            uv = torch.matmul(temp_u_hat, v.unsqueeze(-1))
+            b += uv
+        c = b.argmax(dim=1, keepdim=True)
+        s = (c * u_hat).sum(dim=2)
+        v = squash(s)
 
         return v, c, b
-    
 
 class CapsNet(nn.Module):
     def __init__(self, device):
@@ -68,7 +85,7 @@ class CapsNet(nn.Module):
                                         kernel_size=9,
                                         stride=2)              
         self.digit_caps = DigitCaps(in_dim=8,
-                                    in_caps=32 * 6 * 6,  # cifar in_caps=32 * 8 * 8 mnist in_caps=32 * 6 * 6
+                                    in_caps=32 * 8 * 8,
                                     num_caps=10,
                                     dim_caps=16,
                                     num_routing=3,
@@ -78,7 +95,7 @@ class CapsNet(nn.Module):
             nn.ReLU(inplace=True),
             nn.Linear(512, 1024),
             nn.ReLU(inplace=True),
-            nn.Linear(1024, 784),
+            nn.Linear(1024, 1024),
             nn.Sigmoid())
 
     def forward(self, x):
@@ -86,6 +103,18 @@ class CapsNet(nn.Module):
         out = self.primary_caps(out) 
         primary_caps_output = out
         out, c, b = self.digit_caps(primary_caps_output)
+        digit_caps_output = out
+        logits = torch.norm(digit_caps_output, dim=-1)
+        pred = torch.eye(10).to(self.device).index_select(dim=0, index=torch.argmax(logits, dim=1))
+        batch_size = out.shape[0]
+        reconstruction = self.decoder((out * pred.unsqueeze(2)).contiguous().view(batch_size, -1))
+        return logits, reconstruction, primary_caps_output, digit_caps_output, c, b
+        
+    def argmax_forward(self, x):
+        out = self.relu(self.conv(x)) 
+        out = self.primary_caps(out) 
+        primary_caps_output = out
+        out, c, b = self.digit_caps.newargmax(primary_caps_output)
         digit_caps_output = out
         logits = torch.norm(digit_caps_output, dim=-1)
         pred = torch.eye(10).to(self.device).index_select(dim=0, index=torch.argmax(logits, dim=1))

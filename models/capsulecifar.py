@@ -60,15 +60,15 @@ class CapsNet(nn.Module):
     def __init__(self, device):
         super(CapsNet, self).__init__()
         self.device = device
-        self.conv = nn.Conv2d(1, 256, 9) # 32 * 32 → 24 * 24
+        self.conv = nn.Conv2d(1, 256, 9) # 32→24
         self.relu = nn.ReLU(inplace=True)
         self.primary_caps = PrimaryCaps(num_conv_units=32,       
                                         in_channels=256,
                                         out_channels=8,
                                         kernel_size=9,
-                                        stride=2)              
+                                        stride=2) # 24→6             
         self.digit_caps = DigitCaps(in_dim=8,
-                                    in_caps=32 * 6 * 6,  # cifar in_caps=32 * 8 * 8 mnist in_caps=32 * 6 * 6
+                                    in_caps=32 * 8 * 8,
                                     num_caps=10,
                                     dim_caps=16,
                                     num_routing=3,
@@ -76,9 +76,9 @@ class CapsNet(nn.Module):
         self.decoder = nn.Sequential(
             nn.Linear(16 * 10, 512),
             nn.ReLU(inplace=True),
-            nn.Linear(512, 1024),
+            nn.Linear(512, 2048),
             nn.ReLU(inplace=True),
-            nn.Linear(1024, 784),
+            nn.Linear(2048, 1024),
             nn.Sigmoid())
 
     def forward(self, x):
